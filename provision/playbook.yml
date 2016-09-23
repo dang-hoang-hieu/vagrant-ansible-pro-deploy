@@ -1,0 +1,215 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+   - name: update apt cache
+     apt: update_cache=yes cache_valid_time=3600
+
+- hosts: default
+  become: yes
+  handlers:
+    - name: restart mysql
+      service: name=mysql enabled=yes state=restarted
+    - name: restart apache2
+      service: name=apache2 enabled=yes state=restarted
+    - name: restart cachefilesd
+      command: sudo /etc/init.d/cachefilesd restart
+    - name: update timezone
+      command: dpkg-reconfigure --frontend noninteractive tzdata
+    - name: rehash rbenv
+      command: rbenv rehash
+      environment:
+        RBENV_VERSION: 2.2.4
+        PATH: "/usr/local/rbenv/bin:/usr/local/rbenv/shims:{{ ansible_env.PATH }}"
+  tasks:
+   - name: Install package python-mysqldb
+     apt: name=python-mysqldb state=present
+
+   - name: Set timezone
+     copy: content='Europe/Paris' dest=/etc/timezone owner=root group=root mode=0644
+     notify:
+      - update timezone
+
+   - name: Configure /etc/hosts
+     lineinfile: dest=/etc/hosts line='127.0.0.1 vagrant'
+
+   - name: Setup MySQL 5.5
+     apt: name=mysql-server-5.5 state=present
+   - mysql_db: name={{ item }} state=present encoding=utf8
+     with_items:
+      - thrust_dev
+      - thrust_test
+      - thrust_test_HmdPrivate
+      - thrust_test_HmdPublic
+      - thrust_test_HmdBackOffice
+      - thrust_test_Roma
+      - billango_dev
+      - billango_test
+      - sunda_dev
+      - sunda_test
+      - shovel_dev
+      - shovel_test
+   - mysql_user: name=dev password=devpass host="%" priv=*.*:ALL state=present
+
+   - name: Copy Mysql local params
+     template: src=files/local.cnf.j2 dest=/etc/mysql/conf.d/local.cnf owner=root
+     notify:
+      - restart mysql
+
+   - name: Setup Apache for Passenger
+     apt: name={{ item }} state=present
+     with_items:
+      - apache2
+      - apache2-mpm-prefork
+      - apache2-dev
+      - libapr1-dev
+      - libaprutil1-dev
+   - apache2_module: state=present name=rewrite
+   - apache2_module: state=present name=proxy
+   - apache2_module: state=present name=proxy_http
+   - apache2_module: state=present name=deflate
+   - apache2_module: state=present name=expires
+   - apache2_module: state=absent name=cgid
+   - apache2_module: state=absent name=status
+
+   - name: Install NFS support
+     apt: name={{ item }} state=present
+     with_items:
+      - nfs-common
+      - portmap
+      - cachefilesd
+
+   - name: Install gem Passenger 5.0.28
+     gem: name=passenger state=present version=5.0.28 user_install=no
+     environment:
+       RBENV_VERSION: 2.2.4
+       PATH: "/home/vagrant/.rbenv/bin:/home/vagrant/.rbenv/shims:{{ ansible_env.PATH }}"
+     notify:
+       - rehash rbenv
+
+   - name: Check if Passenger already built
+     shell: ls /home/vagrant/.rbenv/versions/2.2.4/lib/ruby/gems/2.2.0/gems/passenger-5.0.28/buildout/apache2/mod_passenger.so|true
+     register: passenger_check
+     changed_when: false
+
+   - name: Build Passenger
+     shell: passenger-install-apache2-module --auto creates=/home/vagrant/.rbenv/versions/2.2.4/lib/ruby/gems/2.2.0/gems/passenger-5.0.28/buildout/apache2/mod_passenger.so
+     when: passenger_check.stdout.find('No sush file or directory') == -1
+     environment:
+       RBENV_VERSION: 2.2.4
+       PATH: "/home/vagrant/.rbenv/bin:/home/vagrant/.rbenv/shims:{{ ansible_env.PATH }}"
+
+   - name: Configure Apache modules
+     copy: src=files/config-apache dest=/etc/apache2/conf-enabled/local.conf
+     notify:
+      - restart apache2
+
+   - name: Configure Apache virtualhosts
+     copy: src=files/virtualhosts dest=/etc/apache2/sites-enabled/local.conf
+     notify:
+      - restart apache2
+
+   - name: Install all required packages
+     apt: name={{ item }} state=present
+     with_items:
+      - curl
+      - vim
+      - unzip
+      - imagemagick
+      - xvfb
+      - gsfonts
+      - libfont-freetype-perl
+      - xfonts-base
+      - xfonts-75dpi
+      - qt4-dev-tools
+      - libqt4-dev
+      - libqt4-core
+      - libqt4-gui
+      - libffi-dev
+      - libsqlite3-dev
+      - libaspell-dev
+      - aspell-fr
+      - pngquant
+
+   - name: Purge bad packages
+     apt: name={{ item }} state=absent
+     with_items:
+      - wkhtmltopdf
+      - ntp
+
+   - name: Download wkhtmltopdf
+     get_url: url=http://download.gna.org/wkhtmltopdf/0.12/0.12.2/wkhtmltox-0.12.2_linux-jessie-amd64.deb dest=/tmp/wkhtmltopdf.deb
+
+   - name: Install wkhtmltopdf
+     apt: deb=/tmp/wkhtmltopdf.deb
+
+   - name: Download sphinxsearch
+     get_url: url=https://s3-eu-west-1.amazonaws.com/provisioning-petrouchka/sphinxsearch/sphinxsearch-wstemmers_2.2.10-1-1_amd64.deb dest=/tmp/sphinxsearch.deb
+
+   - name: Install sphinxsearch
+     apt: deb=/tmp/sphinxsearch.deb
+
+   - name: Create working directories
+     file: path={{ item }} state=directory owner=vagrant group=vagrant mode=0775
+     with_items:
+      - /home/var/bundle/222
+      - /home/var/bundle/224
+      - /home/var/sphinx/Thrust
+      - /home/var/sphinx/Sunda
+      - /home/vagrant/.bundle
+
+   - name: Add SSH for vagrant user
+     copy: src=files/config-ssh owner=vagrant group=vagrant mode=644 dest=/home/vagrant/.ssh/config
+
+   - name: Add .bashrc for vagrant user
+     template: src=templates/bashrc.j2 dest=/home/vagrant/.bashrc owner=vagrant group=vagrant mode=644
+
+   - name: Add .gemrc for vagrant user
+     copy: src=files/gemrc owner=vagrant group=vagrant mode=644 dest=/home/vagrant/.gemrc
+
+   - name: Add .bashrc for root
+     copy: src=files/bashrc owner=root group=root mode=644 dest=/root/.bashrc
+
+   - name: Add .gemrc for root
+     copy: src=files/gemrc owner=root group=root mode=644 dest=/root/.gemrc
+
+   - name: Install ndenv for vagrant user only
+     git: repo=https://github.com/riywo/ndenv dest=~/.ndenv clone=yes force=yes
+     become: no
+
+   - name: Install node-build for vagrant user only
+     git: repo=https://github.com/riywo/node-build.git dest=~/.ndenv/plugins/node-build clone=yes force=yes
+     become: no
+     register: install_node
+
+   - name: rehash ndenv
+     shell: ~/.ndenv/bin/ndenv rehash
+     become: no
+     when: install_node.changed
+
+   - name: Add ndenv script profile
+     copy: src=files/ndenv.sh dest=/etc/profile.d/ndenv.sh mode=0755
+
+   - name: Build node v0.10.33 for vagrant user only (Best time to drink your coffee)
+     shell: yes|~/.ndenv/bin/ndenv install v0.10.33
+     become: no
+     register: build_node
+
+   - name: rehash ndenv
+     shell: ~/.ndenv/bin/ndenv rehash
+     become: no
+     when: build_node.changed
+
+   - name: ndenv global
+     shell: ~/.ndenv/bin/ndenv global v0.10.33
+     become: no
+
+   - name: Install Bower for vagrant user only
+     npm: name=bower global=yes executable=~/.ndenv/shims/npm
+     become: no
+
+   - name: Update cachefilesd config
+     copy: src=files/cachefilesd dest=/etc/default/cachefilesd
+     notify:
+      - restart cachefilesd
+     ignore_errors: yes

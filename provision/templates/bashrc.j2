@@ -1,0 +1,33 @@
+if [ -z "$PS1" ]; then
+  source /etc/profile.d/rbenv.sh
+  source /etc/profile.d/ndenv.sh
+fi
+
+PS1='[\[\033[1;36m\]\u@\h\[\033[0m\]:\[\033[1;36m\]$(readlink -f "${PWD}")\[\033[0m\]] % '
+
+umask 022
+
+export LS_OPTIONS='--color=auto'
+eval "`dircolors`"
+alias ls='ls $LS_OPTIONS'
+alias ll='ls $LS_OPTIONS -lh'
+alias l='ls $LS_OPTIONS -lA'
+
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+alias cd..='cd ..'
+
+export HISTCONTROL=ignoredups
+export HISTSIZE=5000
+export HISTFILESIZE=1000
+export HISTIGNORE="&:ls:ll:la:l.:pwd:exit:clear"
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+
+if [ $USER == 'vagrant' ]; then
+  alias be='bundle exec'
+  export VAGRANT_USER='{{ VAGRANT_USER }}'
+fi
