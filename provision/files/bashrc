@@ -1,8 +1,3 @@
-if [ -z "$PS1" ]; then
-  source /etc/profile.d/rbenv.sh
-  source /etc/profile.d/ndenv.sh
-fi
-
 PS1='[\[\033[1;36m\]\u@\h\[\033[0m\]:\[\033[1;36m\]$(readlink -f "${PWD}")\[\033[0m\]] % '
 
 umask 022

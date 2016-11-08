@@ -27,7 +27,9 @@ export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
 
-if [ $USER == 'vagrant' ]; then
-  alias be='bundle exec'
-  export VAGRANT_USER='{{ VAGRANT_USER }}'
-fi
+export RAILS_ENV=staging
+#export PATH="$HOME/.rbenv/bin:$PATH"
+#eval "$(rbenv init -)"
+#export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
+
+. ~/.env

@@ -1,60 +1,18 @@
 <VirtualHost *:80>
-  ServerName www.staffsante.dev
-  ServerAlias www.staffsocial.dev
-  ServerAlias clients.agencestaff.dev
-  ServerAlias export.staffsante.dev
-  ServerAlias export.staffsocial.dev
-  ServerAlias api.agencestaff.dev
-  ServerAlias affilies.agencestaff.dev
-  ServerAlias fb.agencestaff.dev
-  ServerAlias m.staffsante.dev
-  ServerAlias m.staffsocial.dev
-  ServerAlias www.profilmedecin.dev
-  DocumentRoot /home/app/Revolution/public/
+  ServerName www.staffsante.xyz
+  ServerAlias static.staffsante.xyz
+  ServerAlias www.staffsocial.xyz
+  ServerAlias clients.agencestaff.xyz
+  ServerAlias export.staffsante.xyz
+  ServerAlias export.staffsocial.xyz
+  ServerAlias api.agencestaff.xyz
+  ServerAlias affilies.agencestaff.xyz
+  ServerAlias fb.agencestaff.xyz
+  ServerAlias m.staffsante.xyz
+  ServerAlias m.staffsocial.xyz
+  ServerAlias www.profilmedecin.xyz
+  DocumentRoot /home/app/Revolution/current/public/
   LimitRequestBody 10485760
-  RailsEnv production
-  RackEnv production
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName d.hospimedia.dev
-  DocumentRoot /home/app/Shovel/public/
-  RailsEnv production
-  RackEnv production
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName api.nominations.hospimedia.dev
-  DocumentRoot /home/app/Loam/public/
-  RailsEnv production
-  RackEnv production
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName nominations.hospimedia.dev
-  DocumentRoot /home/app/Garden/build/
-  RewriteEngine On
-  RewriteCond %{DOCUMENT_ROOT}/NODEV !-f
-  RewriteRule (.*) http://127.0.0.1:4567/$1 [L,P]
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName www.hospimedia.dev
-  DocumentRoot /home/app/HmdPublic/public/
-  RailsEnv production
-  RackEnv production
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName redaction.hospimedia.dev
-  DocumentRoot /home/app/HmdBackOffice/public/
-  RailsEnv production
-  RackEnv production
-</VirtualHost>
-
-<VirtualHost *:80>
-  ServerName abonnes.hospimedia.dev
-  DocumentRoot /home/app/HmdPrivate/public/
-  RailsEnv production
-  RackEnv production
+  RailsEnv staging
+  RackEnv staging
 </VirtualHost>

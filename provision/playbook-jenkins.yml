@@ -1,11 +1,5 @@
 ---
-- hosts: all
-  become: yes
-  tasks:
-   - name: update apt cache
-     apt: update_cache=yes cache_valid_time=3600
-
-- hosts: default
+- hosts: jenkins
   become: yes
   handlers:
     - name: restart mysql
@@ -22,6 +16,8 @@
         RBENV_VERSION: 2.2.4
         PATH: "/usr/local/rbenv/bin:/usr/local/rbenv/shims:{{ ansible_env.PATH }}"
   tasks:
+   - name: update apt cache
+     apt: update_cache=yes cache_valid_time=3600
    - name: Install package python-mysqldb
      apt: name=python-mysqldb state=present
 
@@ -30,11 +26,9 @@
      notify:
       - update timezone
 
-   - name: Configure /etc/hosts
-     lineinfile: dest=/etc/hosts line='127.0.0.1 vagrant'
-
    - name: Setup MySQL 5.5
      apt: name=mysql-server-5.5 state=present
+
    - mysql_db: name={{ item }} state=present encoding=utf8
      with_items:
       - thrust_dev
@@ -55,59 +49,6 @@
      template: src=files/local.cnf.j2 dest=/etc/mysql/conf.d/local.cnf owner=root
      notify:
       - restart mysql
-
-   - name: Setup Apache for Passenger
-     apt: name={{ item }} state=present
-     with_items:
-      - apache2
-      - apache2-mpm-prefork
-      - apache2-dev
-      - libapr1-dev
-      - libaprutil1-dev
-   - apache2_module: state=present name=rewrite
-   - apache2_module: state=present name=proxy
-   - apache2_module: state=present name=proxy_http
-   - apache2_module: state=present name=deflate
-   - apache2_module: state=present name=expires
-   - apache2_module: state=absent name=cgid
-   - apache2_module: state=absent name=status
-
-   - name: Install NFS support
-     apt: name={{ item }} state=present
-     with_items:
-      - nfs-common
-      - portmap
-      - cachefilesd
-
-   - name: Install gem Passenger 5.0.28
-     gem: name=passenger state=present version=5.0.28 user_install=no
-     environment:
-       RBENV_VERSION: 2.2.4
-       PATH: "/home/vagrant/.rbenv/bin:/home/vagrant/.rbenv/shims:{{ ansible_env.PATH }}"
-     notify:
-       - rehash rbenv
-
-   - name: Check if Passenger already built
-     shell: ls /home/vagrant/.rbenv/versions/2.2.4/lib/ruby/gems/2.2.0/gems/passenger-5.0.28/buildout/apache2/mod_passenger.so|true
-     register: passenger_check
-     changed_when: false
-
-   - name: Build Passenger
-     shell: passenger-install-apache2-module --auto creates=/home/vagrant/.rbenv/versions/2.2.4/lib/ruby/gems/2.2.0/gems/passenger-5.0.28/buildout/apache2/mod_passenger.so
-     when: passenger_check.stdout.find('No sush file or directory') == -1
-     environment:
-       RBENV_VERSION: 2.2.4
-       PATH: "/home/vagrant/.rbenv/bin:/home/vagrant/.rbenv/shims:{{ ansible_env.PATH }}"
-
-   - name: Configure Apache modules
-     copy: src=files/config-apache dest=/etc/apache2/conf-enabled/local.conf
-     notify:
-      - restart apache2
-
-   - name: Configure Apache virtualhosts
-     copy: src=files/virtualhosts dest=/etc/apache2/sites-enabled/local.conf
-     notify:
-      - restart apache2
 
    - name: Install all required packages
      apt: name={{ item }} state=present
@@ -150,22 +91,23 @@
      apt: deb=/tmp/sphinxsearch.deb
 
    - name: Create working directories
-     file: path={{ item }} state=directory owner=vagrant group=vagrant mode=0775
+     file: path={{ item }} state=directory owner={{ VAGRANT_USER }} group={{ VAGRANT_USER }} mode=0775
      with_items:
       - /home/var/bundle/222
       - /home/var/bundle/224
       - /home/var/sphinx/Thrust
       - /home/var/sphinx/Sunda
-      - /home/vagrant/.bundle
+      - "{{ ansible_env.PWD }}/.bundle"
 
-   - name: Add SSH for vagrant user
-     copy: src=files/config-ssh owner=vagrant group=vagrant mode=644 dest=/home/vagrant/.ssh/config
+   #- debug: msg="{{ ansible_env }}"
+   - name: Add SSH for {{ VAGRANT_USER }} user
+     copy: src=files/config-ssh owner={{ VAGRANT_USER }} group={{ VAGRANT_USER }} mode=644 dest={{ ansible_env.PWD }}/.ssh/config
 
-   - name: Add .bashrc for vagrant user
-     template: src=templates/bashrc.j2 dest=/home/vagrant/.bashrc owner=vagrant group=vagrant mode=644
+   - name: Add .bashrc for {{ VAGRANT_USER }} user
+     template: src=templates/bashrc.j2 dest={{ ansible_env.PWD }}/.bashrc owner={{ VAGRANT_USER }} group={{ VAGRANT_USER }} mode=644
 
-   - name: Add .gemrc for vagrant user
-     copy: src=files/gemrc owner=vagrant group=vagrant mode=644 dest=/home/vagrant/.gemrc
+   - name: Add .gemrc for {{ VAGRANT_USER }} user
+     copy: src=files/gemrc owner={{ VAGRANT_USER }} group={{ VAGRANT_USER }} mode=644 dest={{ ansible_env.PWD }}/.gemrc
 
    - name: Add .bashrc for root
      copy: src=files/bashrc owner=root group=root mode=644 dest=/root/.bashrc
@@ -173,11 +115,11 @@
    - name: Add .gemrc for root
      copy: src=files/gemrc owner=root group=root mode=644 dest=/root/.gemrc
 
-   - name: Install ndenv for vagrant user only
+   - name: Install ndenv for {{ VAGRANT_USER }} user only
      git: repo=https://github.com/riywo/ndenv dest=~/.ndenv clone=yes force=yes
      become: no
 
-   - name: Install node-build for vagrant user only
+   - name: Install node-build for {{ VAGRANT_USER }} user only
      git: repo=https://github.com/riywo/node-build.git dest=~/.ndenv/plugins/node-build clone=yes force=yes
      become: no
      register: install_node
@@ -190,7 +132,7 @@
    - name: Add ndenv script profile
      copy: src=files/ndenv.sh dest=/etc/profile.d/ndenv.sh mode=0755
 
-   - name: Build node v0.10.33 for vagrant user only (Best time to drink your coffee)
+   - name: Build node v0.10.33 for {{ VAGRANT_USER }} user only (Best time to drink your coffee)
      shell: yes|~/.ndenv/bin/ndenv install v0.10.33
      become: no
      register: build_node
@@ -204,12 +146,6 @@
      shell: ~/.ndenv/bin/ndenv global v0.10.33
      become: no
 
-   - name: Install Bower for vagrant user only
+   - name: Install Bower for {{ VAGRANT_USER }} user only
      npm: name=bower global=yes executable=~/.ndenv/shims/npm
      become: no
-
-   - name: Update cachefilesd config
-     copy: src=files/cachefilesd dest=/etc/default/cachefilesd
-     notify:
-      - restart cachefilesd
-     ignore_errors: yes

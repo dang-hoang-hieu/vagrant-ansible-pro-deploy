@@ -1,0 +1,9 @@
+common: &common
+  access_key_id: <%= ENV['SUNDA_S3_ACCESS_KEY_ID'] %>
+  secret_access_key: <%= ENV['SUNDA_SECRET_ACCESS_KEY'] %>
+  s3_host_name: s3-eu-west-1.amazonaws.com
+
+staging:
+  <<: *common
+  bucket: static.staffsante.fr.dev
+  url: http://static.agencestaff.fr.biz
